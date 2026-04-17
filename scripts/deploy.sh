@@ -17,6 +17,10 @@ if [[ ! -f "${ROOT}/.env" ]]; then
   exit 1
 fi
 
+# PM2 режет node_args по пробелу; для Node --env-file используем путь без пробелов.
+ENV_LINK="${HOME}/.shectory-assist.env"
+ln -sf "${ROOT}/.env" "${ENV_LINK}"
+
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git pull --ff-only
 fi

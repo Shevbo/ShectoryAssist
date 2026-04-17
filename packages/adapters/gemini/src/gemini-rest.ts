@@ -39,6 +39,8 @@ function firstTextFromResponse(r: GenerateContentResponse): string {
 export type GeminiRestConfig = GeminiHttpConfig & {
   asrModel: string;
   nluModel: string;
+  /** Текстовый чат (свободный диалог); по умолчанию как nlu — быстрый flash. */
+  chatModel: string;
   ttsModel: string;
 };
 
@@ -145,6 +147,33 @@ Rules: gazeta if user wants news headlines from gazeta.ru picture of day. help f
     return { intent: "unknown", entities: {} };
   };
 
+  const generateChatReply = async (args: { text: string; locale: string; traceId: string }) => {
+    void args.traceId;
+    const body = {
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `You are Shectory Assist, a helpful assistant for a Russian-speaking user. Reply in Russian unless the user clearly writes in another language. Be concise (max ~900 characters), no filler. Do not claim you browsed the live web unless the user message was only about gazeta.ru headlines (that is handled elsewhere).
+
+Locale hint: ${args.locale}
+
+User message:
+${args.text}`,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.65,
+        maxOutputTokens: 1024,
+      },
+    };
+    const r = await postGenerateContent(http, config.chatModel, body);
+    return firstTextFromResponse(r);
+  };
+
   const synthesizeSpeech = async (args: {
     text: string;
     voiceName: string;
@@ -188,5 +217,5 @@ Rules: gazeta if user wants news headlines from gazeta.ru picture of day. help f
     return null;
   };
 
-  return { transcribeAudio, classifyIntent, synthesizeSpeech };
+  return { transcribeAudio, classifyIntent, generateChatReply, synthesizeSpeech };
 }

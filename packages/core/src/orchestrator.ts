@@ -20,6 +20,12 @@ export type GeminiAdapter = {
     traceId: string;
   }) => Promise<AsrResult>;
   classifyIntent?: GeminiNluFn;
+  /** Свободный текстовый диалог (быстрая модель, например gemini-2.5-flash). */
+  generateChatReply?: (args: {
+    text: string;
+    locale: string;
+    traceId: string;
+  }) => Promise<string>;
   synthesizeSpeech: (args: {
     text: string;
     voiceName: string;
@@ -42,8 +48,9 @@ export type OrchestratorDeps = {
 };
 
 const HELP_TEXT =
-  "Привет! Я Shectory Assist. Отправь голосовое с просьбой прочитать «картину дня» с Газеты точка ру — я озвучу заголовки. " +
-  "Можно написать текстом то же самое. Чтобы сменить голос (если поддерживается моделью), напиши: голос Kore.";
+  "Привет! Я Shectory Assist. Голосовые сообщения распознаются моделью Gemini (ASR), ответы голосом — отдельной моделью TTS (см. AGENT_GEMINI_ASR_MODEL / AGENT_GEMINI_TTS_MODEL в настройках). " +
+  "Попроси прочитать «картину дня» с gazeta.ru — озвучу заголовки или отвечу текстом. Обычные вопросы можно писать текстом — отвечу через быстрый чат Gemini. " +
+  "Сменить голос озвучки: «голос Kore».";
 
 function aggregateMessages(out: SkillOutput): string {
   return out.messages.map((m) => m.text).join("\n\n");
@@ -221,15 +228,53 @@ export class Orchestrator {
           audioPolicy: "text_only",
         };
       } else if (routed.intent === "unknown") {
-        skillOut = {
-          messages: [
-            {
-              text:
-                "Пока я понимаю в основном запросы про «картину дня» на gazeta.ru. Пример: «Прочитай топики новостей с сайта газеты точка ру».",
-            },
-          ],
-          audioPolicy: "text_only",
-        };
+        if (gemini.generateChatReply) {
+          try {
+            const chatText = await gemini.generateChatReply({
+              text: transcript,
+              locale: args.locale,
+              traceId: args.traceId,
+            });
+            const trimmed = chatText.trim();
+            skillOut = {
+              messages: [
+                {
+                  text:
+                    trimmed ||
+                    "Кратко: могу почитать «картину дня» с gazeta.ru или ответить на вопрос текстом. Пример: «Прочитай заголовки картины дня с газеты точка ру».",
+                },
+              ],
+              audioPolicy: "text_only",
+            };
+          } catch (e) {
+            logger({
+              level: "error",
+              msg: "chat_reply_failed",
+              traceId: args.traceId,
+              userId: args.userId,
+              extra: { err: String(e) },
+            });
+            skillOut = {
+              messages: [
+                {
+                  text:
+                    "Сейчас не удалось получить ответ от модели. Попробуй ещё раз или спроси про «картину дня» gazeta.ru текстом.",
+                },
+              ],
+              audioPolicy: "text_only",
+            };
+          }
+        } else {
+          skillOut = {
+            messages: [
+              {
+                text:
+                  "Пока я понимаю в основном запросы про «картину дня» на gazeta.ru. Пример: «Прочитай топики новостей с сайта газеты точка ру».",
+              },
+            ],
+            audioPolicy: "text_only",
+          };
+        }
       } else {
         skillOut = await runSkill(routed.intent, skillInput, skills);
       }

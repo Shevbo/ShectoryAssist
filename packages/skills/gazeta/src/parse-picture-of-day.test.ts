@@ -18,4 +18,15 @@ describe("parsePictureOfDayHtml", () => {
   it("speech script mentions empty state", () => {
     expect(titlesToSpeechScript([])).toMatch(/Не удалось/);
   });
+
+  it("fallback picks article links in main", () => {
+    const html = `<html><body><main>
+      <a href="/social/99999999/some-article.shtml">Заголовок статьи для теста</a>
+      <a href="/politics/88888888/other.shtml">Вторая новость тестовая</a>
+    </main></body></html>`;
+    const r = parsePictureOfDayHtml(html, { maxTitles: 10 });
+    expect(r.titles).toContain("Заголовок статьи для теста");
+    expect(r.titles).toContain("Вторая новость тестовая");
+    expect(r.usedSelector).toBe("fallback_article_links");
+  });
 });

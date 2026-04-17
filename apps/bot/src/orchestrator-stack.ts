@@ -2,6 +2,7 @@ import {
   createGeminiRestAdapter,
   type GeminiRestConfig,
 } from "@shectory-assist/adapters-gemini";
+import { ProxyAgent, fetch as undiciFetch } from "undici";
 import {
   createJsonLogger,
   InMemoryIdempotencyStore,
@@ -11,6 +12,22 @@ import {
 import { createGazetaPictureOfDaySkill } from "@shectory-assist/skill-gazeta";
 import type { BotConfig } from "./config.js";
 import { MemoryProfileStore } from "./memory-profile-store.js";
+
+function createOutboundFetch(proxyUrl: string | undefined, connectMs: number): typeof fetch {
+  const uri = proxyUrl?.trim();
+  if (!uri) {
+    return globalThis.fetch.bind(globalThis);
+  }
+  const dispatcher = new ProxyAgent({
+    uri,
+    proxyTls: { timeout: connectMs },
+  }) as import("undici").Dispatcher;
+  return ((input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+    undiciFetch(input as string | URL, {
+      ...(init as object),
+      dispatcher,
+    } as Parameters<typeof undiciFetch>[1])) as typeof fetch;
+}
 
 export function createOrchestratorStack(cfg: BotConfig) {
   const logger = createJsonLogger();
@@ -22,6 +39,7 @@ export function createOrchestratorStack(cfg: BotConfig) {
     proxyConnectTimeoutMs: cfg.agentProxyConnectTimeoutMs,
     asrModel: cfg.geminiAsrModel,
     nluModel: cfg.geminiNluModel,
+    chatModel: cfg.geminiChatModel,
     ttsModel: cfg.geminiTtsModel,
   };
   const gemini = createGeminiRestAdapter(geminiCfg);
@@ -30,6 +48,7 @@ export function createOrchestratorStack(cfg: BotConfig) {
     cacheTtlMs: cfg.gazetaCacheTtlMs,
     maxGlobalFetchesPerMinute: cfg.gazetaMaxFetchesPerMinute,
     maxTitles: cfg.maxTitles,
+    fetch: createOutboundFetch(cfg.agentProxyUrl, cfg.agentProxyConnectTimeoutMs),
   });
 
   const idempotency = new InMemoryIdempotencyStore();
@@ -40,6 +59,7 @@ export function createOrchestratorStack(cfg: BotConfig) {
     gemini: {
       transcribeAudio: gemini.transcribeAudio,
       classifyIntent: gemini.classifyIntent,
+      generateChatReply: gemini.generateChatReply,
       synthesizeSpeech: gemini.synthesizeSpeech,
     },
     idempotency,

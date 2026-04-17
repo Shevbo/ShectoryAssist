@@ -19,6 +19,8 @@ export type BotConfig = {
   agentProxyConnectTimeoutMs: number;
   geminiAsrModel: string;
   geminiNluModel: string;
+  /** Текстовый чат (Gemini 2.5 Flash и т.п.). */
+  geminiChatModel: string;
   geminiTtsModel: string;
   defaultVoice: string;
   port: number;
@@ -107,6 +109,13 @@ export function loadConfig(): BotConfig {
     geminiNluModel: normalizeChatModelId(
       process.env.AGENT_GEMINI_NLU_MODEL?.trim() ||
         process.env.GEMINI_NLU_MODEL?.trim() ||
+        process.env.AGENT_LLM_MODEL?.trim() ||
+        "gemini-2.5-flash",
+    ),
+    geminiChatModel: normalizeChatModelId(
+      process.env.AGENT_GEMINI_CHAT_MODEL?.trim() ||
+        process.env.AGENT_LLM_MODEL_FAST?.trim() ||
+        process.env.AGENT_GEMINI_NLU_MODEL?.trim() ||
         process.env.AGENT_LLM_MODEL?.trim() ||
         "gemini-2.5-flash",
     ),

@@ -7,10 +7,17 @@ export type ParseResult = {
 
 const SELECTORS = [
   "[data-testid='picture-of-day'] a",
+  "[data-testid=\"picture-of-day\"] a",
   ".b-day-topic a",
   ".day-topic a",
   "section[class*='picture'] a",
   ".l-day_top a",
+  "main .b-day-topic a",
+  ".l-col-main a[href*='/social/']",
+  ".l-col-main a[href*='/politics/']",
+  ".l-wrp a[href*='/social/']",
+  ".b-story__title a",
+  ".b-topic-latest a[href*='.shtml']",
 ];
 
 function normalizeTitle(s: string): string {
@@ -47,9 +54,24 @@ export function parsePictureOfDayHtml(
     }
   }
 
-  $("a").each((_i, el) => {
+  const hrefLooksLikeArticle = (href: string): boolean => {
+    const h = href.trim();
+    if (!h || h.startsWith("#") || h.startsWith("javascript:")) {
+      return false;
+    }
+    return /\/(social|politics|business|culture|science|sport|news)\/[^"'?#]+\.shtml/i.test(h) || /\/news\/[^"'?#]+/i.test(h);
+  };
+
+  $("a[href]").each((_i, el) => {
+    const href = $(el).attr("href") ?? "";
+    if (!hrefLooksLikeArticle(href)) {
+      return;
+    }
     const t = normalizeTitle($(el).text());
-    if (t.length < 12 || t.length > 200) {
+    if (t.length < 10 || t.length > 200) {
+      return;
+    }
+    if (/^(читать|подробнее|все новости|ещё)$/i.test(t)) {
       return;
     }
     if (seen.has(t)) {
@@ -63,7 +85,7 @@ export function parsePictureOfDayHtml(
     return undefined;
   });
 
-  return { titles: titles.slice(0, maxTitles) };
+  return { titles: titles.slice(0, maxTitles), usedSelector: "fallback_article_links" };
 }
 
 export function titlesToSpeechScript(titles: string[]): string {

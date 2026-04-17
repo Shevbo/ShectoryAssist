@@ -4,6 +4,10 @@ import {
 } from "@shectory-assist/adapters-gemini";
 
 export type BotConfig = {
+  /** Снимок allowlist с портала; если не заданы PORTAL_ALLOWLIST_* — null. */
+  portalAllowlistProjectSlug: string | null;
+  /** Если true и запрос к порталу не удался — пускаем пользователя (не блокируем бот). */
+  allowlistFetchFailOpen: boolean;
   telegramBotToken: string;
   /** Секрет из `secret_token` при setWebhook; проверяется заголовком `X-Telegram-Bot-Api-Secret-Token`. */
   telegramWebhookSecret: string | null;
@@ -68,7 +72,16 @@ export function loadConfig(): BotConfig {
     throw new Error("Missing AGENT_LLM_API_KEY (или устаревший GEMINI_API_KEY)");
   }
 
+  const portalBase = process.env.PORTAL_ALLOWLIST_BASE_URL?.trim();
+  const bridgeSecret = process.env.SHECTORY_AUTH_BRIDGE_SECRET?.trim();
+  const portalAllowlistProjectSlug =
+    portalBase && bridgeSecret
+      ? (process.env.PORTAL_ALLOWLIST_PROJECT_SLUG?.trim() || "shectory-assist")
+      : null;
+
   return {
+    portalAllowlistProjectSlug,
+    allowlistFetchFailOpen: (process.env.PORTAL_ALLOWLIST_FAIL_OPEN ?? "true").trim() !== "false",
     telegramBotToken: req("TELEGRAM_BOT_TOKEN"),
     telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET?.trim() || null,
     agentLlmApiKey,

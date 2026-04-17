@@ -1,6 +1,7 @@
 import { Bot, InputFile, type Context } from "grammy";
 import { createOrchestratorStack } from "./orchestrator-stack.js";
 import type { BotConfig } from "./config.js";
+import { fetchAllowlistSnapshot, isTelegramUserAllowed } from "./portal-allowlist.js";
 
 function isOggOpus(buf: Buffer): boolean {
   return buf.length >= 4 && buf.subarray(0, 4).toString("ascii") === "OggS";
@@ -35,6 +36,15 @@ export function wireTelegramBot(bot: Bot<Context>, cfg: BotConfig) {
   });
 
   bot.command("start", async (ctx) => {
+    const userId = String(ctx.from?.id ?? "");
+    if (cfg.portalAllowlistProjectSlug) {
+      const snap = await fetchAllowlistSnapshot(cfg.portalAllowlistProjectSlug);
+      const gate = isTelegramUserAllowed(userId, snap, cfg.allowlistFetchFailOpen);
+      if (!gate.ok) {
+        await ctx.reply("Доступ к боту ограничен. Обратитесь к администратору Shectory.");
+        return;
+      }
+    }
     await ctx.reply(
       "Я Shectory Assist. Голосом или текстом попроси прочитать «картину дня» с сайта gazeta.ru — озвучу заголовки. Можно спросить «что ты умеешь».",
     );
@@ -47,6 +57,22 @@ export function wireTelegramBot(bot: Bot<Context>, cfg: BotConfig) {
     }
     const traceId = `tg-${ctx.update.update_id}`;
     const userId = String(ctx.from?.id ?? "unknown");
+
+    if (cfg.portalAllowlistProjectSlug) {
+      const snap = await fetchAllowlistSnapshot(cfg.portalAllowlistProjectSlug);
+      const gate = isTelegramUserAllowed(userId, snap, cfg.allowlistFetchFailOpen);
+      if (!gate.ok) {
+        logger({
+          level: "info",
+          msg: "telegram_allowlist_denied",
+          traceId,
+          userId,
+          extra: { reason: gate.reason ?? "denied" },
+        });
+        await ctx.reply("Доступ к боту ограничен. Обратитесь к администратору Shectory.");
+        return;
+      }
+    }
     const locale = ctx.from?.language_code ?? "ru-RU";
     const messageKey = `${ctx.chat?.id ?? 0}:${msg.message_id}`;
 

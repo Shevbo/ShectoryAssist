@@ -8,17 +8,28 @@
 4. `npm install && npm run build`.
 5. `BOT_MODE=long_poll` (по умолчанию) — `npm run dev` или `npm run start -w @shectory-assist/bot`.
 
-## Деплой на VDS (регламент портала Shectory)
+## Деплой (регламент портала Shectory)
 
-С монолита **CursorRPA** на машине с настроенным `ssh shectory-work`:
+**shectory-work** — только рабочая копия репозитория и git (путь с пробелом допустим). **hoster** — рантайм: Node, **PM2**, файл **`.env`** (секреты не в git).
+
+Первый раз на **hoster**: каталог без пробелов, например `~/shectory-assist` (`git clone … ShectoryAssist.git ~/shectory-assist`), положить **`.env`** в корень клона.
+
+С машины, где настроены `ssh shectory-work` и `ssh hoster`:
 
 ```bash
 cd /home/shectory/workspaces/CursorRPA
 ./scripts/deploy-project.sh shectory-assist hoster
 ```
 
-Скрипт: коммит/пуш на VDS (если есть незакоммиченные изменения в каталоге проекта), затем `git pull`, `npm ci`, сборка, **PM2** `shectory-assist-bot` из `ecosystem.config.cjs`.  
-Из-за ограничения PM2 и пробела в пути каталога `Shectory Assist` создаётся симлинк **`~/.shectory-assist.env`** → `.env` в корне репозитория (не удаляй вручную без замены).
+Скрипт: при необходимости коммит/пуш с **shectory-work** из каталога `Shectory Assist`, затем на **hoster** в `~/shectory-assist`: синхронизация с `origin/main`, `npm ci`, сборка, **PM2** `shectory-assist-bot` из `ecosystem.config.cjs`.
+
+Если раньше бот крутился на VDS с **shectory-work**, останови там процесс (`pm2 delete shectory-assist-bot`), чтобы не было двух экземпляров.
+
+## Allowlist пользователей Telegram
+
+Список разрешённых **numeric user id** ведётся в **Shectory Portal**: [Панель управления](https://shectory.ru/projects/shectory-assist/control) проекта `shectory-assist` (нужна админ-сессия портала). Пока **нет ни одной включённой** записи — бот принимает всех. После появления включённых записей — только они.
+
+На hoster в `.env` бота задай `PORTAL_ALLOWLIST_BASE_URL` и `SHECTORY_AUTH_BRIDGE_SECRET` (тот же секрет, что в `.env` портала на VDS). Опционально: `PORTAL_ALLOWLIST_FAIL_OPEN=false` — при недоступности портала не пускать неизвестных (по умолчанию `true` — не блокировать из‑за сети).
 
 ## Продакшен (webhook)
 

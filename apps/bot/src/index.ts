@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { Bot } from "grammy";
 import { loadConfig } from "./config.js";
-import { createTelegramApiFetch } from "./telegram-fetch.js";
+import { createTelegramApiFetch, wrapFetchWithDeadline } from "./telegram-fetch.js";
 import { wireTelegramBot } from "./telegram-handlers.js";
 import { startTelegramWebhookServer } from "./webhook-server.js";
 
@@ -16,8 +16,16 @@ function logLine(obj: Record<string, unknown>) {
 
 async function main() {
   const cfg = loadConfig();
-  const tgFetch = createTelegramApiFetch(cfg.agentProxyUrl, cfg.agentProxyConnectTimeoutMs);
-  logLine({ msg: "assist_telegram_client", viaProxy: Boolean(cfg.agentProxyUrl) });
+  const innerFetch = createTelegramApiFetch(cfg.agentProxyUrl, cfg.agentProxyConnectTimeoutMs);
+  const tgFetch = wrapFetchWithDeadline(
+    innerFetch,
+    cfg.telegramApiTimeoutSeconds * 1000 + 2_000,
+  );
+  logLine({
+    msg: "assist_telegram_client",
+    viaProxy: Boolean(cfg.agentProxyUrl),
+    telegram_api_timeout_sec: cfg.telegramApiTimeoutSeconds,
+  });
 
   const bot = new Bot(cfg.telegramBotToken, {
     client: {
@@ -40,6 +48,7 @@ async function main() {
   if (cfg.mode === "webhook") {
     await startTelegramWebhookServer(cfg, bot);
   } else {
+    logLine({ msg: "assist_bot_start_enter" });
     const pollingTimeoutSec = cfg.agentProxyUrl ? 12 : 30;
     await bot.start({
       timeout: pollingTimeoutSec,

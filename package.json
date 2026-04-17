@@ -1,0 +1,26 @@
+{
+  "name": "shectory-assist",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/core",
+    "packages/adapters/*",
+    "packages/skills/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @shectory-assist/core && npm run build -w @shectory-assist/adapters-gemini && npm run build -w @shectory-assist/skill-gazeta && npm run build -w @shectory-assist/bot",
+    "test": "npm run test -w @shectory-assist/core && npm run test -w @shectory-assist/skill-gazeta",
+    "lint": "eslint . --max-warnings 0",
+    "dev": "npm run dev -w @shectory-assist/bot"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.24.0",
+    "eslint": "^9.24.0",
+    "globals": "^16.0.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.29.1",
+    "vitest": "^3.1.1"
+  }
+}

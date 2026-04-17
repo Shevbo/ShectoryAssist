@@ -25,8 +25,7 @@ npm ci
 npm run build
 
 PM2_NAME="shectory-assist-bot"
-RUNNER="${ROOT}/scripts/run-prod.sh"
-chmod +x "${RUNNER}" 2>/dev/null || true
+ECOSYSTEM="${ROOT}/ecosystem.config.cjs"
 
 # Локальный pm2 из npm ci, иначе глобальный / npx.
 if [[ -x "${ROOT}/node_modules/.bin/pm2" ]]; then
@@ -41,9 +40,8 @@ else
 fi
 
 if "${PM2[@]}" describe "${PM2_NAME}" >/dev/null 2>&1; then
-  "${PM2[@]}" restart "${PM2_NAME}" --update-env
-else
-  "${PM2[@]}" start "${RUNNER}" --name "${PM2_NAME}" --cwd "${ROOT}"
+  "${PM2[@]}" delete "${PM2_NAME}" 2>/dev/null || true
 fi
+"${PM2[@]}" start "${ECOSYSTEM}" --only "${PM2_NAME}"
 "${PM2[@]}" save 2>/dev/null || true
 echo "ok: ${PM2[*]} ${PM2_NAME}"

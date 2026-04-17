@@ -28,6 +28,8 @@ export type BotConfig = {
   gazetaCacheTtlMs: number;
   gazetaMaxFetchesPerMinute: number;
   maxTitles: number;
+  /** Жёсткий лимит на весь пайплайн (NLU + скилл + TTS), мс. */
+  assistPipelineDeadlineMs: number;
 };
 
 function req(name: string): string {
@@ -117,5 +119,6 @@ export function loadConfig(): BotConfig {
     gazetaCacheTtlMs: Number(process.env.GAZETA_CACHE_TTL_MS ?? "90000"),
     gazetaMaxFetchesPerMinute: Number(process.env.GAZETA_MAX_FETCH_PER_MIN ?? "8"),
     maxTitles: Number(process.env.GAZETA_MAX_TITLES ?? "15"),
+    assistPipelineDeadlineMs: envInt("ASSIST_PIPELINE_DEADLINE_MS", 120_000),
   };
 }

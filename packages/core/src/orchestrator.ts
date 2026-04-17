@@ -217,7 +217,8 @@ export class Orchestrator {
       if (routed.intent === "help") {
         skillOut = {
           messages: [{ text: HELP_TEXT }],
-          audioPolicy: "prefer_voice",
+          // Без TTS: ответ сразу текстом (приветствия и «hello» не должны висеть на озвучке).
+          audioPolicy: "text_only",
         };
       } else if (routed.intent === "unknown") {
         skillOut = {
@@ -227,7 +228,7 @@ export class Orchestrator {
                 "Пока я понимаю в основном запросы про «картину дня» на gazeta.ru. Пример: «Прочитай топики новостей с сайта газеты точка ру».",
             },
           ],
-          audioPolicy: "prefer_voice",
+          audioPolicy: "text_only",
         };
       } else {
         skillOut = await runSkill(routed.intent, skillInput, skills);

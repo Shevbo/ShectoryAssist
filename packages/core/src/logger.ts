@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 export type LogRecord = {
   level: "info" | "warn" | "error";
   msg: string;
@@ -9,14 +11,21 @@ export type LogRecord = {
 
 export type Logger = (rec: LogRecord) => void;
 
-export function createJsonLogger(out: Pick<typeof process, "stdout"> = process): Logger {
+/**
+ * Writes one JSON line per call with fs.writeSync so logs appear immediately
+ * under PM2 (stdout connected to a pipe is often fully buffered).
+ */
+export function createJsonLogger(): Logger {
   return (rec: LogRecord) => {
-    out.stdout.write(
-      `${JSON.stringify({
-        ts: new Date().toISOString(),
-        ...rec,
-      })}\n`,
-    );
+    const line = `${JSON.stringify({
+      ts: new Date().toISOString(),
+      ...rec,
+    })}\n`;
+    try {
+      fs.writeSync(1, line);
+    } catch {
+      // EPIPE / closed fd — ignore
+    }
   };
 }
 

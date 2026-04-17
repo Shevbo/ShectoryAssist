@@ -1,11 +1,8 @@
-/**
- * PM2: путь к .env без пробелов (симлинк создаёт scripts/deploy.sh → ~/.shectory-assist.env).
- */
+/** PM2: `--env-file` — `.env` в корне репозитория (на hoster путь без пробелов: ~/shectory-assist). */
 const path = require("node:path");
-const os = require("node:os");
 
 const root = __dirname;
-const envFile = path.join(os.homedir(), ".shectory-assist.env");
+const envFile = path.join(root, ".env");
 
 module.exports = {
   apps: [

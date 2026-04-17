@@ -143,18 +143,45 @@ export function wireTelegramBot(
       return;
     }
 
+    void ctx.replyWithChatAction("typing").catch(() => {});
+
     let r: Awaited<ReturnType<Orchestrator["handleUserMessageEvent"]>>;
+    let pipelineTimer: ReturnType<typeof setTimeout> | undefined;
     try {
-      r = await orchestrator.handleUserMessageEvent({
-        userId,
-        locale,
-        messageKey,
-        traceId,
-        audio,
-        text: text ?? null,
-      });
+      r = await Promise.race([
+        orchestrator.handleUserMessageEvent({
+          userId,
+          locale,
+          messageKey,
+          traceId,
+          audio,
+          text: text ?? null,
+        }),
+        new Promise<never>((_, rej) => {
+          pipelineTimer = setTimeout(
+            () => rej(new Error("assist_pipeline_deadline")),
+            cfg.assistPipelineDeadlineMs,
+          );
+        }),
+      ]);
     } catch (e) {
+      clearTimeout(pipelineTimer);
       await idempotency.release(idemKey);
+      if (e instanceof Error && e.message === "assist_pipeline_deadline") {
+        logger({
+          level: "error",
+          msg: "pipeline_deadline",
+          traceId,
+          userId,
+          extra: { ms: cfg.assistPipelineDeadlineMs },
+        });
+        await ctx
+          .reply(
+            "Обработка заняла слишком много времени (сеть или модель). Попробуй ещё раз через минуту или короче запрос.",
+          )
+          .catch(() => {});
+        return;
+      }
       logger({
         level: "error",
         msg: "orchestrator_threw",
@@ -164,6 +191,8 @@ export function wireTelegramBot(
       });
       await ctx.reply("Внутренняя ошибка. Попробуй ещё раз новым сообщением.").catch(() => {});
       return;
+    } finally {
+      clearTimeout(pipelineTimer);
     }
 
     if (r.duplicateSkipped) {

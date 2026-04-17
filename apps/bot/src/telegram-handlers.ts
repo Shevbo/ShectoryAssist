@@ -14,17 +14,26 @@ function isMp3(buf: Buffer): boolean {
   );
 }
 
-async function downloadTelegramVoice(bot: Bot<Context>, filePath: string): Promise<Buffer> {
+async function downloadTelegramVoice(
+  bot: Bot<Context>,
+  filePath: string,
+  httpFetch: typeof fetch,
+): Promise<Buffer> {
   const url = `https://api.telegram.org/file/bot${bot.token}/${filePath}`;
-  const res = await fetch(url);
+  const res = await httpFetch(url);
   if (!res.ok) {
     throw new Error(`telegram_file_download:${res.status}`);
   }
   return Buffer.from(await res.arrayBuffer());
 }
 
-export function wireTelegramBot(bot: Bot<Context>, cfg: BotConfig) {
+export function wireTelegramBot(
+  bot: Bot<Context>,
+  cfg: BotConfig,
+  opts: { telegramFetch: typeof fetch },
+) {
   const { orchestrator, logger } = createOrchestratorStack(cfg);
+  const httpFetch = opts.telegramFetch;
 
   bot.catch((err) => {
     logger({
@@ -81,13 +90,13 @@ export function wireTelegramBot(bot: Bot<Context>, cfg: BotConfig) {
       if (msg.voice) {
         const file = await ctx.getFile();
         if (file.file_path) {
-          const buffer = await downloadTelegramVoice(bot, file.file_path);
+          const buffer = await downloadTelegramVoice(bot, file.file_path, httpFetch);
           audio = { buffer, mimeType: msg.voice.mime_type ?? "audio/ogg" };
         }
       } else if (msg.audio) {
         const file = await ctx.getFile();
         if (file.file_path) {
-          const buffer = await downloadTelegramVoice(bot, file.file_path);
+          const buffer = await downloadTelegramVoice(bot, file.file_path, httpFetch);
           audio = {
             buffer,
             mimeType: msg.audio.mime_type ?? "audio/mpeg",

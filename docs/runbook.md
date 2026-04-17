@@ -31,6 +31,8 @@ cd /home/shectory/workspaces/CursorRPA
 
 На hoster в `.env` бота задай `PORTAL_ALLOWLIST_BASE_URL` и `SHECTORY_AUTH_BRIDGE_SECRET` (тот же секрет, что в `.env` портала на VDS). Опционально: `PORTAL_ALLOWLIST_FAIL_OPEN=false` — при недоступности портала не пускать неизвестных (по умолчанию `true` — не блокировать из‑за сети).
 
+**Доступ к Telegram API:** с hoster/VDS часто **нет** прямого TCP до `api.telegram.org:443`. Тогда long poll и отправка сообщений не работают. Обязательно тот же **`AGENT_PROXY`**, что для Gemini (undici `ProxyAgent` используется и для Bot API, и для скачивания файлов голоса).
+
 ## Продакшен (webhook)
 
 1. HTTPS URL, доступный Telegram, например `https://<домен>/telegram/webhook`.

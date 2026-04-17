@@ -13,7 +13,8 @@
     "@shectory-assist/core": "*",
     "@shectory-assist/skill-gazeta": "*",
     "fastify": "^5.2.2",
-    "grammy": "^1.36.3"
+    "grammy": "^1.36.3",
+    "undici": "^7.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",

@@ -45,6 +45,8 @@ else
   exit 1
 fi
 
+chmod +x "${ROOT}/scripts/run-assist-bot.sh" 2>/dev/null || true
+
 if "${PM2[@]}" describe "${PM2_NAME}" >/dev/null 2>&1; then
   "${PM2[@]}" delete "${PM2_NAME}" 2>/dev/null || true
 fi

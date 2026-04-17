@@ -2,7 +2,7 @@ import type { IdempotencyStore } from "./idempotency.js";
 import type { Logger } from "./logger.js";
 import { clipText } from "./logger.js";
 import type { RateLimiter } from "./rate-limit.js";
-import { routeIntent, type GeminiNluFn } from "./intent-router.js";
+import { normalizeUserTranscript, routeIntent, type GeminiNluFn } from "./intent-router.js";
 import type { SkillRegistry } from "./skills.js";
 import type {
   AsrResult,
@@ -47,7 +47,8 @@ export type OrchestratorDeps = {
   logger: Logger;
 };
 
-const HELP_TEXT =
+/** Ответ на help и команда `/help` в Telegram (экспорт для handlers). */
+export const ASSIST_HELP_REPLY_TEXT =
   "Привет! Я Shectory Assist. Голосовые сообщения распознаются моделью Gemini (ASR), ответы голосом — отдельной моделью TTS (см. AGENT_GEMINI_ASR_MODEL / AGENT_GEMINI_TTS_MODEL в настройках). " +
   "Попроси прочитать «картину дня» с gazeta.ru — озвучу заголовки или отвечу текстом. Обычные вопросы можно писать текстом — отвечу через быстрый чат Gemini. " +
   "Сменить голос озвучки: «голос Kore».";
@@ -168,6 +169,8 @@ export class Orchestrator {
       };
     }
 
+    transcript = normalizeUserTranscript(transcript);
+
     logger({
       level: "info",
       msg: "user_message",
@@ -223,7 +226,7 @@ export class Orchestrator {
     try {
       if (routed.intent === "help") {
         skillOut = {
-          messages: [{ text: HELP_TEXT }],
+          messages: [{ text: ASSIST_HELP_REPLY_TEXT }],
           // Без TTS: ответ сразу текстом (приветствия и «hello» не должны висеть на озвучке).
           audioPolicy: "text_only",
         };

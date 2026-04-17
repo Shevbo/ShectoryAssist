@@ -2,11 +2,21 @@ import type { NluResult } from "./types.js";
 
 const GAZETA_HINTS =
   /gazeta|газет|картин[аы]\s+дня|топик|новост|заголовк|прочитай/i;
-const HELP_HINTS = /помощь|help|что\s+ты\s+умеешь|как\s+пользоваться/i;
+/** Вопросы про возможности бота (в т.ч. после неточного ASR). Без `\b`: в JS `\b` не работает с кириллицей. */
+const HELP_HINTS =
+  /(?:^|[\s,.!?])(?:помощь|help)(?:$|[\s,.!?])|что[\s,.!?]*ты[\s,.!?]*умеешь|что[\s,.!?]+умеешь|как\s+пользоваться|на\s+что\s+ты\s+способен|твои\s+возможности|чем\s+полезен|what\s+can\s+you\s+do/i;
 const VOICE_HINTS = /голос\s+([\w-]+)|смени\s+голос/i;
 
+/** NBSP и похожие символы → обычный пробел (иначе `\s` в RegExp может не сработать). */
+export function normalizeUserTranscript(transcript: string): string {
+  return transcript
+    .replace(/[\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function routeIntentRuleBased(transcript: string): NluResult {
-  const t = transcript.trim();
+  const t = normalizeUserTranscript(transcript);
   if (!t) {
     return { intent: "unknown", entities: {} };
   }
@@ -38,12 +48,13 @@ export async function routeIntent(
     traceId: string;
   },
 ): Promise<NluResult> {
-  const primary = routeIntentRuleBased(transcript);
+  const normalized = normalizeUserTranscript(transcript);
+  const primary = routeIntentRuleBased(normalized);
   if (primary.intent !== "unknown") {
     return primary;
   }
   if (options.geminiNlu) {
-    return options.geminiNlu(transcript, options.traceId);
+    return options.geminiNlu(normalized, options.traceId);
   }
   return primary;
 }

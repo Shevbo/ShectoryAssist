@@ -2,7 +2,7 @@ import { Bot, InputFile, type Context } from "grammy";
 import { createOrchestratorStack } from "./orchestrator-stack.js";
 import type { BotConfig } from "./config.js";
 import { fetchAllowlistSnapshot, isTelegramUserAllowed } from "./portal-allowlist.js";
-import type { Orchestrator } from "@shectory-assist/core";
+import { ASSIST_HELP_REPLY_TEXT, type Orchestrator } from "@shectory-assist/core";
 
 function extractUserText(msg: { text?: string; caption?: string }): string | undefined {
   if (typeof msg.text === "string" && msg.text.trim()) {
@@ -68,6 +68,19 @@ export function wireTelegramBot(
     await ctx.reply(
       "Я Shectory Assist. Голосом или текстом: «картина дня» с gazeta.ru — заголовки (озвучка через Gemini TTS). Любые другие вопросы — текстом, отвечу через быстрый Gemini Chat. Команда /start снова покажет это сообщение.",
     );
+  });
+
+  bot.command("help", async (ctx) => {
+    const userId = String(ctx.from?.id ?? "");
+    if (cfg.portalAllowlistProjectSlug) {
+      const snap = await fetchAllowlistSnapshot(cfg.portalAllowlistProjectSlug);
+      const gate = isTelegramUserAllowed(userId, snap, cfg.allowlistFetchFailOpen);
+      if (!gate.ok) {
+        await ctx.reply("Доступ к боту ограничен. Обратитесь к администратору Shectory.");
+        return;
+      }
+    }
+    await ctx.reply(ASSIST_HELP_REPLY_TEXT);
   });
 
   bot.on("message", async (ctx) => {

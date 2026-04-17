@@ -100,7 +100,7 @@ export function createGeminiRestAdapter(config: GeminiRestConfig) {
             {
               text: `Classify user message into JSON only, no markdown. Schema:
 {"intent":"gazeta_picture_of_day"|"help"|"set_voice"|"unknown","voiceName":string|null}
-Rules: gazeta if user wants news headlines from gazeta.ru picture of day. help for greetings/capabilities. set_voice if user asks to change TTS voice by name. unknown otherwise.`,
+Rules: gazeta if user wants news headlines from gazeta.ru picture of day. help for capabilities, "что умеешь", "что ты умеешь", помощь, what can you do. set_voice if user asks to change TTS voice by name. unknown otherwise.`,
             },
             { text: `Message: ${text}` },
           ],

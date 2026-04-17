@@ -28,15 +28,22 @@ PM2_NAME="shectory-assist-bot"
 RUNNER="${ROOT}/scripts/run-prod.sh"
 chmod +x "${RUNNER}" 2>/dev/null || true
 
-if command -v pm2 >/dev/null 2>&1; then
-  if pm2 describe "${PM2_NAME}" >/dev/null 2>&1; then
-    pm2 restart "${PM2_NAME}" --update-env
-  else
-    pm2 start "${RUNNER}" --name "${PM2_NAME}" --cwd "${ROOT}"
-  fi
-  pm2 save || true
-  echo "ok: pm2 ${PM2_NAME}"
+# Локальный pm2 из npm ci, иначе глобальный / npx.
+if [[ -x "${ROOT}/node_modules/.bin/pm2" ]]; then
+  PM2=("${ROOT}/node_modules/.bin/pm2")
+elif command -v pm2 >/dev/null 2>&1; then
+  PM2=(pm2)
+elif command -v npx >/dev/null 2>&1; then
+  PM2=(npx --yes pm2)
 else
-  echo "error: pm2 not found; install: npm i -g pm2"
+  echo "error: need pm2 or npx"
   exit 1
 fi
+
+if "${PM2[@]}" describe "${PM2_NAME}" >/dev/null 2>&1; then
+  "${PM2[@]}" restart "${PM2_NAME}" --update-env
+else
+  "${PM2[@]}" start "${RUNNER}" --name "${PM2_NAME}" --cwd "${ROOT}"
+fi
+"${PM2[@]}" save 2>/dev/null || true
+echo "ok: ${PM2[*]} ${PM2_NAME}"

@@ -16,6 +16,7 @@
     "dev": "npm run dev -w @shectory-assist/bot"
   },
   "devDependencies": {
+    "pm2": "^5.4.3",
     "@eslint/js": "^9.24.0",
     "eslint": "^9.24.0",
     "globals": "^16.0.0",

@@ -32,6 +32,7 @@ export function createOrchestratorStack(cfg: BotConfig) {
     maxTitles: cfg.maxTitles,
   });
 
+  const idempotency = new InMemoryIdempotencyStore();
   const orchestrator = new Orchestrator({
     skills: {
       gazeta_picture_of_day: gazeta,
@@ -41,11 +42,11 @@ export function createOrchestratorStack(cfg: BotConfig) {
       classifyIntent: gemini.classifyIntent,
       synthesizeSpeech: gemini.synthesizeSpeech,
     },
-    idempotency: new InMemoryIdempotencyStore(),
+    idempotency,
     rateLimiter: new TokenBucketRateLimiter(cfg.rateLimitPerUserPerMinute, 60_000),
     profiles: new MemoryProfileStore(cfg.defaultVoice),
     logger,
   });
 
-  return { orchestrator, logger };
+  return { orchestrator, logger, idempotency };
 }

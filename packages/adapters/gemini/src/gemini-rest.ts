@@ -110,30 +110,34 @@ Rules: gazeta if user wants news headlines from gazeta.ru picture of day. help f
         responseMimeType: "application/json",
       },
     };
-    const r = await postGenerateContent(http, config.nluModel, body);
-    const raw = firstTextFromResponse(r);
     try {
-      const parsed = JSON.parse(raw) as {
-        intent?: string;
-        voiceName?: string | null;
-      };
-      const intent = parsed.intent;
-      if (
-        intent === "gazeta_picture_of_day" ||
-        intent === "help" ||
-        intent === "set_voice" ||
-        intent === "unknown"
-      ) {
-        const out: NluResult = {
-          intent,
-          entities:
-            intent === "set_voice" && parsed.voiceName
-              ? { voiceName: parsed.voiceName }
-              : intent === "gazeta_picture_of_day"
-                ? { source: "gazeta.ru", block: "picture_of_day" }
-                : {},
+      const r = await postGenerateContent(http, config.nluModel, body);
+      const raw = firstTextFromResponse(r);
+      try {
+        const parsed = JSON.parse(raw) as {
+          intent?: string;
+          voiceName?: string | null;
         };
-        return out;
+        const intent = parsed.intent;
+        if (
+          intent === "gazeta_picture_of_day" ||
+          intent === "help" ||
+          intent === "set_voice" ||
+          intent === "unknown"
+        ) {
+          const out: NluResult = {
+            intent,
+            entities:
+              intent === "set_voice" && parsed.voiceName
+                ? { voiceName: parsed.voiceName }
+                : intent === "gazeta_picture_of_day"
+                  ? { source: "gazeta.ru", block: "picture_of_day" }
+                  : {},
+          };
+          return out;
+        }
+      } catch {
+        /* fallthrough */
       }
     } catch {
       /* fallthrough */

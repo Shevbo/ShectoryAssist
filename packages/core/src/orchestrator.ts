@@ -7,6 +7,7 @@ import type { SkillRegistry } from "./skills.js";
 import type {
   AsrResult,
   Intent,
+  NluResult,
   PipelineMetrics,
   SkillInput,
   SkillOutput,
@@ -81,6 +82,8 @@ export class Orchestrator {
     replyText: string;
     replyAudio: Buffer | null;
     metrics: PipelineMetrics;
+    /** Повтор того же update_id после успешной обработки (или после сбоя отправки с «съеденным» ключом). */
+    duplicateSkipped?: boolean;
   }> {
     const { logger, rateLimiter, idempotency, gemini, skills, profiles } = this.deps;
     const metrics: PipelineMetrics = {
@@ -112,7 +115,7 @@ export class Orchestrator {
         userId: args.userId,
         extra: { key: idemKey },
       });
-      return { replyText: "", replyAudio: null, metrics };
+      return { replyText: "", replyAudio: null, metrics, duplicateSkipped: true };
     }
 
     let transcript = (args.text ?? "").trim();
@@ -166,10 +169,26 @@ export class Orchestrator {
       extra: { transcriptClip: clipText(transcript) },
     });
 
-    const routed = await routeIntent(transcript, {
-      geminiNlu: gemini.classifyIntent,
-      traceId: args.traceId,
-    });
+    let routed: NluResult;
+    try {
+      routed = await routeIntent(transcript, {
+        geminiNlu: gemini.classifyIntent,
+        traceId: args.traceId,
+      });
+    } catch (e) {
+      logger({
+        level: "error",
+        msg: "intent_route_failed",
+        traceId: args.traceId,
+        userId: args.userId,
+        extra: { err: String(e) },
+      });
+      return {
+        replyText: "Не удалось разобрать запрос. Попробуй переформулировать текстом.",
+        replyAudio: null,
+        metrics,
+      };
+    }
 
     const voiceDefault = await profiles.getVoice(args.userId);
     let voice = voiceDefault;

@@ -1,6 +1,8 @@
 export type IdempotencyStore = {
   /** Returns false if key was already processed (duplicate). */
   tryConsume(key: string): Promise<boolean>;
+  /** Снять ключ (например после ошибки отправки ответа в Telegram — иначе повтор апдейта «молчит»). */
+  release(key: string): Promise<void>;
 };
 
 export class InMemoryIdempotencyStore implements IdempotencyStore {
@@ -20,5 +22,9 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
     }
     this.seen.add(key);
     return true;
+  }
+
+  async release(key: string): Promise<void> {
+    this.seen.delete(key);
   }
 }

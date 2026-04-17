@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
-# Деплой на VDS (shectory-work): вызывается из CursorRPA/scripts/deploy-project.sh.
+# Деплой на hoster (~/shectory-assist): вызывается из CursorRPA/scripts/deploy-project.sh по SSH.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+# Один токен = один long poll. PM2 на shectory-work с тем же TELEGRAM_BOT_TOKEN забирает апдейты — бот на hoster «молчит».
+if [[ "${USER:-}" == "shectory" && "${ROOT}" == *"Shectory Assist"* && "${SHECTORY_ASSIST_ALLOW_WORK_PM2:-}" != "1" ]]; then
+  echo "error: не запускайте PM2 Assist на VDS (shectory-work) с прод-токеном. Прод: hoster ~/shectory-assist. Для осознанного теста: SHECTORY_ASSIST_ALLOW_WORK_PM2=1 ./scripts/deploy.sh"
+  exit 1
+fi
 
 if [[ -f "${HOME}/.config/shectory/proxy.env" ]]; then
   set -a
@@ -16,10 +22,6 @@ if [[ ! -f "${ROOT}/.env" ]]; then
   echo "error: missing ${ROOT}/.env (секреты не в git)"
   exit 1
 fi
-
-# PM2 режет node_args по пробелу; для Node --env-file используем путь без пробелов.
-ENV_LINK="${HOME}/.shectory-assist.env"
-ln -sf "${ROOT}/.env" "${ENV_LINK}"
 
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git pull --ff-only

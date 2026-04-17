@@ -33,6 +33,8 @@ cd /home/shectory/workspaces/CursorRPA
 
 **Доступ к Telegram API:** с hoster/VDS часто **нет** прямого TCP до `api.telegram.org:443`. Тогда long poll и отправка сообщений не работают. Обязательно тот же **`AGENT_PROXY`**, что для Gemini (undici `ProxyAgent` используется и для Bot API, и для скачивания файлов голоса).
 
+**Один токен — один long poll:** не держи второй процесс с тем же `TELEGRAM_BOT_TOKEN` (например PM2 на **shectory-work** в каталоге `Shectory Assist`). Иначе Telegram отдаёт апдейты только одному потребителю, второй «немой». Скрипт `scripts/deploy.sh` на VDS под пользователем `shectory` **заблокирован** (см. `SHECTORY_ASSIST_ALLOW_WORK_PM2` в скрипте).
+
 ## Продакшен (webhook)
 
 1. HTTPS URL, доступный Telegram, например `https://<домен>/telegram/webhook`.

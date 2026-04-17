@@ -22,6 +22,7 @@ async function main() {
   const bot = new Bot(cfg.telegramBotToken, {
     client: {
       fetch: tgFetch,
+      timeoutSeconds: cfg.telegramApiTimeoutSeconds,
     },
   });
 
@@ -54,6 +55,11 @@ async function main() {
 }
 
 main().catch((e) => {
+  try {
+    fs.writeSync(2, `${JSON.stringify({ msg: "assist_fatal", err: String(e) })}\n`);
+  } catch {
+    // ignore
+  }
   console.error(e);
   process.exitCode = 1;
 });

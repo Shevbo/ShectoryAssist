@@ -30,6 +30,12 @@ export type BotConfig = {
   maxTitles: number;
   /** Жёсткий лимит на весь пайплайн (NLU + скилл + TTS), мс. */
   assistPipelineDeadlineMs: number;
+  /**
+   * Таймаут одного HTTP-запроса к Telegram Bot API (секунды, grammY `client.timeoutSeconds`).
+   * У grammY по умолчанию 500 с — при медленном прокси `getMe`/`deleteWebhook` держат старт до long poll минутами.
+   * Не ставьте ниже ~55: long poll `getUpdates` у Telegram до 50 с.
+   */
+  telegramApiTimeoutSeconds: number;
 };
 
 function req(name: string): string {
@@ -120,5 +126,6 @@ export function loadConfig(): BotConfig {
     gazetaMaxFetchesPerMinute: Number(process.env.GAZETA_MAX_FETCH_PER_MIN ?? "8"),
     maxTitles: Number(process.env.GAZETA_MAX_TITLES ?? "15"),
     assistPipelineDeadlineMs: envInt("ASSIST_PIPELINE_DEADLINE_MS", 120_000),
+    telegramApiTimeoutSeconds: Math.max(55, envInt("TELEGRAM_API_TIMEOUT_SEC", 120)),
   };
 }

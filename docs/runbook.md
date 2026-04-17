@@ -8,6 +8,18 @@
 4. `npm install && npm run build`.
 5. `BOT_MODE=long_poll` (по умолчанию) — `npm run dev` или `npm run start -w @shectory-assist/bot`.
 
+## Деплой на VDS (регламент портала Shectory)
+
+С монолита **CursorRPA** на машине с настроенным `ssh shectory-work`:
+
+```bash
+cd /home/shectory/workspaces/CursorRPA
+./scripts/deploy-project.sh shectory-assist hoster
+```
+
+Скрипт: коммит/пуш на VDS (если есть незакоммиченные изменения в каталоге проекта), затем `git pull`, `npm ci`, сборка, **PM2** `shectory-assist-bot` из `ecosystem.config.cjs`.  
+Из-за ограничения PM2 и пробела в пути каталога `Shectory Assist` создаётся симлинк **`~/.shectory-assist.env`** → `.env` в корне репозитория (не удаляй вручную без замены).
+
 ## Продакшен (webhook)
 
 1. HTTPS URL, доступный Telegram, например `https://<домен>/telegram/webhook`.

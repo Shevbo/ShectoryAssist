@@ -4,6 +4,7 @@
  */
 
 import { ProxyAgent, fetch as undiciFetch } from "undici";
+import { undiciProxyAgentOptionsFromEnv } from "./undici-proxy-opts.js";
 
 export function normalizeGeminiBaseUrl(raw: string | undefined): string {
   const trimmed = (raw ?? "https://generativelanguage.googleapis.com/v1beta").replace(/\/$/, "");
@@ -53,10 +54,9 @@ export async function geminiPostGenerateContent(
     signal: controller.signal as AbortSignal,
   };
   if (http.proxyUrl?.trim()) {
-    fetchOptions.dispatcher = new ProxyAgent({
-      uri: http.proxyUrl.trim(),
-      proxyTls: { timeout: http.proxyConnectTimeoutMs },
-    }) as import("undici").Dispatcher;
+    fetchOptions.dispatcher = new ProxyAgent(
+      undiciProxyAgentOptionsFromEnv(http.proxyUrl.trim(), http.proxyConnectTimeoutMs),
+    ) as import("undici").Dispatcher;
   }
 
   try {

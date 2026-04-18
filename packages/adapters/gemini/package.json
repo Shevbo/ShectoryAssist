@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./undici-proxy-opts": {
+      "types": "./dist/undici-proxy-opts.d.ts",
+      "import": "./dist/undici-proxy-opts.js"
     }
   },
   "scripts": {

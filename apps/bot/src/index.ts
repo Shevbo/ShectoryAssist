@@ -36,6 +36,23 @@ async function main() {
     telegram_api_timeout_sec: cfg.telegramApiTimeoutSeconds,
     telegram_bootstrap_timeout_ms: cfg.telegramBootstrapTimeoutMs,
   });
+  if (cfg.agentProxyUrl?.trim()) {
+    try {
+      const u = new URL(cfg.agentProxyUrl.trim());
+      const hasUrlAuth = Boolean(u.username);
+      const hasEnvAuth = Boolean(
+        process.env.AGENT_PROXY_TOKEN?.trim() || process.env.AGENT_PROXY_USER?.trim(),
+      );
+      if (!hasUrlAuth && !hasEnvAuth) {
+        logLine({
+          msg: "assist_telegram_proxy_auth_hint",
+          note: "если прокси отдаёт 407 — задайте user:pass в AGENT_PROXY или AGENT_PROXY_USER/PASSWORD или AGENT_PROXY_TOKEN",
+        });
+      }
+    } catch {
+      // ignore invalid proxy URL for hint
+    }
+  }
 
   // getMe вне grammY Api — нативный AbortSignal + undici (как Gemini); дальше grammY с wire(innerFetch).
   const bootstrapDeadlineMs = cfg.telegramBootstrapTimeoutMs + 2_000;

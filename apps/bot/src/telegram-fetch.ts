@@ -2,6 +2,7 @@
  * Telegram: `undici` ProxyAgent + `undici.fetch`, сигнал grammY (abort-controller) — через мост
  * на нативный AbortSignal. Первый `getMe` при старте — отдельно, как Gemini: только нативный сигнал.
  */
+import { undiciProxyAgentOptionsFromEnv } from "@shectory-assist/adapters-gemini/undici-proxy-opts";
 import type { UserFromGetMe } from "grammy/types";
 import { ProxyAgent, fetch as undiciFetch } from "undici";
 
@@ -69,10 +70,9 @@ export function createTelegramApiFetch(
   if (!uri) {
     return globalThis.fetch.bind(globalThis) as TelegramFetch;
   }
-  const dispatcher = new ProxyAgent({
-    uri,
-    proxyTls: { timeout: proxyConnectTimeoutMs },
-  }) as import("undici").Dispatcher;
+  const dispatcher = new ProxyAgent(
+    undiciProxyAgentOptionsFromEnv(uri, proxyConnectTimeoutMs),
+  ) as import("undici").Dispatcher;
 
   const viaProxy = ((input: Parameters<TelegramFetch>[0], init?: Parameters<TelegramFetch>[1]) =>
     undiciFetch(requestUrl(input), {
@@ -103,10 +103,9 @@ export async function telegramGetMeWithNativeSignal(
     };
     const uri = proxyUrl?.trim();
     if (uri) {
-      opts.dispatcher = new ProxyAgent({
-        uri,
-        proxyTls: { timeout: proxyConnectTimeoutMs },
-      }) as import("undici").Dispatcher;
+      opts.dispatcher = new ProxyAgent(
+        undiciProxyAgentOptionsFromEnv(uri, proxyConnectTimeoutMs),
+      ) as import("undici").Dispatcher;
     }
     const res = await undiciFetch(url, opts);
     const data = (await res.json()) as {
@@ -132,10 +131,9 @@ export function createUndiciProxiedFetch(
   if (!uri) {
     return globalThis.fetch.bind(globalThis);
   }
-  const dispatcher = new ProxyAgent({
-    uri,
-    proxyTls: { timeout: proxyConnectTimeoutMs },
-  }) as import("undici").Dispatcher;
+  const dispatcher = new ProxyAgent(
+    undiciProxyAgentOptionsFromEnv(uri, proxyConnectTimeoutMs),
+  ) as import("undici").Dispatcher;
 
   return ((input: Parameters<typeof undiciFetch>[0], init?: Parameters<typeof undiciFetch>[1]) =>
     undiciFetch(input as string | URL, {

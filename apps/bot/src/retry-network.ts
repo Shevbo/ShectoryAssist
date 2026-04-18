@@ -7,7 +7,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function unwrapGrammyHttpError(err: unknown): unknown {
+  if (typeof err !== "object" || err === null) {
+    return err;
+  }
+  const o = err as { name?: string; error?: unknown };
+  if (o.name === "HttpError" && o.error !== undefined) {
+    return unwrapGrammyHttpError(o.error);
+  }
+  return err;
+}
+
 function isTransientTelegramNetworkError(err: unknown): boolean {
+  const root = unwrapGrammyHttpError(err);
   const codes = new Set([
     "ECONNRESET",
     "ECONNREFUSED",
@@ -17,11 +29,18 @@ function isTransientTelegramNetworkError(err: unknown): boolean {
     "EPIPE",
     "UND_ERR_SOCKET",
   ]);
-  let cur: unknown = err;
-  for (let d = 0; d < 8 && cur !== undefined && cur !== null; d++) {
+  let cur: unknown = root;
+  for (let d = 0; d < 10 && cur !== undefined && cur !== null; d++) {
     if (typeof cur === "object") {
-      const o = cur as { code?: unknown; cause?: unknown };
+      const o = cur as { code?: unknown; cause?: unknown; message?: unknown };
       if (typeof o.code === "string" && codes.has(o.code)) {
+        return true;
+      }
+      const msg = typeof o.message === "string" ? o.message : "";
+      if (msg.includes("timed out") || msg.includes("Time-out")) {
+        return true;
+      }
+      if (msg === "Request was cancelled" || msg.includes("Request was cancelled")) {
         return true;
       }
       cur = o.cause;
@@ -29,8 +48,14 @@ function isTransientTelegramNetworkError(err: unknown): boolean {
       break;
     }
   }
-  const s = String(err);
-  return s.includes("fetch failed") || s.includes("ECONNRESET") || s.includes("ECONNREFUSED");
+  const s = String(root);
+  return (
+    s.includes("fetch failed") ||
+    s.includes("ECONNRESET") ||
+    s.includes("ECONNREFUSED") ||
+    s.includes("Request was cancelled") ||
+    s.includes("timed out")
+  );
 }
 
 export type RetryLog = (obj: Record<string, unknown>) => void;

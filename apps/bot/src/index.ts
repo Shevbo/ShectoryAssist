@@ -29,13 +29,14 @@ async function main() {
     telegram_bootstrap_timeout_ms: cfg.telegramBootstrapTimeoutMs,
   });
 
-  // Только grammY timeoutSeconds: второй AbortSignal через wrapFetchWithDeadline
-  // даёт ложные «Request was cancelled» с undici+Proxy.
-  const bootstrapTimeoutSec = Math.max(1, Math.ceil(cfg.telegramBootstrapTimeoutMs / 1_000));
+  // Внешний дедлайн через wrapFetch; у Api большой timeoutSeconds — иначе гонка двух
+  // таймеров grammY и AbortSignal.timeout оба ~30с даёт ложный «Request was cancelled».
+  const bootstrapDeadlineMs = cfg.telegramBootstrapTimeoutMs + 2_000;
+  const bootstrapFetch = wrapFetchWithDeadline(innerFetch, Math.max(5_000, bootstrapDeadlineMs));
   logLine({ msg: "assist_bot_bootstrap_begin" });
   const bootstrapApi = new Api(cfg.telegramBotToken, {
-    fetch: innerFetch,
-    timeoutSeconds: bootstrapTimeoutSec,
+    fetch: bootstrapFetch,
+    timeoutSeconds: 500,
   });
   const botInfo = await withTransientNetworkRetries(
     { msg: "assist_bot_bootstrap_getme_retry", logLine },

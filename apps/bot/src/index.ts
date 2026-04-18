@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { Bot } from "grammy";
+import { Api, Bot } from "grammy";
 import { loadConfig } from "./config.js";
 import { createTelegramApiFetch, wrapFetchWithDeadline } from "./telegram-fetch.js";
 import { wireTelegramBot } from "./telegram-handlers.js";
@@ -25,9 +25,26 @@ async function main() {
     msg: "assist_telegram_client",
     viaProxy: Boolean(cfg.agentProxyUrl),
     telegram_api_timeout_sec: cfg.telegramApiTimeoutSeconds,
+    telegram_bootstrap_timeout_ms: cfg.telegramBootstrapTimeoutMs,
+  });
+
+  const bootstrapDeadlineMs = cfg.telegramBootstrapTimeoutMs + 2_000;
+  const bootstrapFetch = wrapFetchWithDeadline(innerFetch, Math.max(5_000, bootstrapDeadlineMs));
+  const bootstrapTimeoutSec = Math.max(1, Math.ceil(bootstrapDeadlineMs / 1_000));
+  logLine({ msg: "assist_bot_bootstrap_begin" });
+  const bootstrapApi = new Api(cfg.telegramBotToken, {
+    fetch: bootstrapFetch,
+    timeoutSeconds: bootstrapTimeoutSec,
+  });
+  const botInfo = await bootstrapApi.getMe();
+  logLine({
+    msg: "assist_bot_init_ok",
+    username: botInfo.username,
+    bot_id: botInfo.id,
   });
 
   const bot = new Bot(cfg.telegramBotToken, {
+    botInfo,
     client: {
       fetch: tgFetch,
       timeoutSeconds: cfg.telegramApiTimeoutSeconds,
@@ -46,21 +63,10 @@ async function main() {
   wireTelegramBot(bot, cfg, { telegramFetch: tgFetch });
 
   if (cfg.mode === "webhook") {
-    logLine({ msg: "assist_bot_init_begin" });
-    await bot.init();
-    logLine({ msg: "assist_bot_init_ok", username: bot.botInfo.username, bot_id: bot.botInfo.id });
     await startTelegramWebhookServer(cfg, bot);
   } else {
     logLine({ msg: "assist_bot_start_enter" });
-    // До start grammY параллелит getMe и deleteWebhook; под PM2 это иногда «виснет» без long poll.
-    // Явный init: второй этап start делает только deleteWebhook.
-    logLine({ msg: "assist_bot_init_begin" });
-    await bot.init();
-    logLine({
-      msg: "assist_bot_init_ok",
-      username: bot.botInfo.username,
-      bot_id: bot.botInfo.id,
-    });
+    // getMe уже выполнен с коротким дедлайном; start() не держит init параллельно с deleteWebhook.
     const pollingTimeoutSec = cfg.agentProxyUrl ? 12 : 30;
     await bot.start({
       timeout: pollingTimeoutSec,

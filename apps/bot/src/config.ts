@@ -38,6 +38,11 @@ export type BotConfig = {
    * Не ставьте ниже ~55: long poll `getUpdates` у Telegram до 50 с.
    */
   telegramApiTimeoutSeconds: number;
+  /**
+   * Отдельный дедлайн на первый `getMe` при старте (мс). Короче основного API-таймаута,
+   * чтобы при «мёртвом» прокси процесс падал с ошибкой, а не молчал до TELEGRAM_API_TIMEOUT_SEC.
+   */
+  telegramBootstrapTimeoutMs: number;
 };
 
 function req(name: string): string {
@@ -136,5 +141,9 @@ export function loadConfig(): BotConfig {
     maxTitles: Number(process.env.GAZETA_MAX_TITLES ?? "15"),
     assistPipelineDeadlineMs: envInt("ASSIST_PIPELINE_DEADLINE_MS", 120_000),
     telegramApiTimeoutSeconds: Math.max(55, envInt("TELEGRAM_API_TIMEOUT_SEC", 120)),
+    telegramBootstrapTimeoutMs: Math.min(
+      120_000,
+      Math.max(5_000, envInt("TELEGRAM_BOOTSTRAP_TIMEOUT_MS", 30_000)),
+    ),
   };
 }

@@ -12,8 +12,12 @@
     "@shectory-assist/adapters-gemini": "*",
     "@shectory-assist/core": "*",
     "@shectory-assist/skill-gazeta": "*",
+    "@types/node-fetch": "^2.6.12",
     "fastify": "^5.2.2",
     "grammy": "^1.36.3",
+    "https-proxy-agent": "^7.0.6",
+    "node-fetch": "^2.7.0",
+    "socks-proxy-agent": "^8.0.5",
     "undici": "^7.5.0"
   },
   "devDependencies": {

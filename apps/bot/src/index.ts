@@ -1,7 +1,11 @@
 import fs from "node:fs";
 import { Api, Bot } from "grammy";
 import { loadConfig } from "./config.js";
-import { createTelegramApiFetch, wrapFetchWithDeadline } from "./telegram-fetch.js";
+import {
+  createTelegramApiFetch,
+  wrapFetchWithDeadline,
+  type TelegramFetch,
+} from "./telegram-fetch.js";
 import { wireTelegramBot } from "./telegram-handlers.js";
 import { withTransientNetworkRetries } from "./retry-network.js";
 import { startTelegramWebhookServer } from "./webhook-server.js";
@@ -17,7 +21,10 @@ function logLine(obj: Record<string, unknown>) {
 
 async function main() {
   const cfg = loadConfig();
-  const innerFetch = createTelegramApiFetch(cfg.agentProxyUrl, cfg.agentProxyConnectTimeoutMs);
+  const innerFetch: TelegramFetch = createTelegramApiFetch(
+    cfg.agentProxyUrl,
+    cfg.agentProxyConnectTimeoutMs,
+  );
   const tgFetch = wrapFetchWithDeadline(
     innerFetch,
     cfg.telegramApiTimeoutSeconds * 1000 + 2_000,
@@ -29,12 +36,11 @@ async function main() {
     telegram_bootstrap_timeout_ms: cfg.telegramBootstrapTimeoutMs,
   });
 
-  // Один таймаут — grammY client (wired undici в innerFetch). Двойной wrapFetch+grammY
-  // давал мгновенный «Request was cancelled» на части Node/undici.
+  // Один таймаут — grammY client; при прокси innerFetch = node-fetch + agent (совместим с abort-controller).
   const bootstrapTimeoutSec = Math.max(10, Math.ceil(cfg.telegramBootstrapTimeoutMs / 1_000));
   logLine({ msg: "assist_bot_bootstrap_begin" });
   const bootstrapApi = new Api(cfg.telegramBotToken, {
-    fetch: innerFetch,
+    fetch: innerFetch as never,
     timeoutSeconds: bootstrapTimeoutSec,
   });
   const botInfo = await withTransientNetworkRetries(
@@ -53,7 +59,7 @@ async function main() {
   const bot = new Bot(cfg.telegramBotToken, {
     botInfo,
     client: {
-      fetch: tgFetch,
+      fetch: tgFetch as never,
       timeoutSeconds: cfg.telegramApiTimeoutSeconds,
     },
   });

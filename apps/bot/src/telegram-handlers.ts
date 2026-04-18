@@ -1,6 +1,7 @@
 import { Bot, InputFile, type Context } from "grammy";
 import { createOrchestratorStack } from "./orchestrator-stack.js";
 import type { BotConfig } from "./config.js";
+import type { TelegramFetch } from "./telegram-fetch.js";
 import { fetchAllowlistSnapshot, isTelegramUserAllowed } from "./portal-allowlist.js";
 import { ASSIST_HELP_REPLY_TEXT, type Orchestrator } from "@shectory-assist/core";
 
@@ -28,7 +29,7 @@ function isMp3(buf: Buffer): boolean {
 async function downloadTelegramVoice(
   bot: Bot<Context>,
   filePath: string,
-  httpFetch: typeof fetch,
+  httpFetch: TelegramFetch,
 ): Promise<Buffer> {
   const url = `https://api.telegram.org/file/bot${bot.token}/${filePath}`;
   const res = await httpFetch(url);
@@ -41,7 +42,7 @@ async function downloadTelegramVoice(
 export function wireTelegramBot(
   bot: Bot<Context>,
   cfg: BotConfig,
-  opts: { telegramFetch: typeof fetch },
+  opts: { telegramFetch: TelegramFetch },
 ) {
   const { orchestrator, logger, idempotency } = createOrchestratorStack(cfg);
   const httpFetch = opts.telegramFetch;

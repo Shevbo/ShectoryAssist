@@ -1,73 +1,66 @@
 /**
- * Вызовы Telegram Bot API через undici + AGENT_PROXY (как Gemini).
- * Без прокси на многих площадках РФ api.telegram.org недоступен напрямую.
+ * Telegram Bot API: без прокси — `globalThis.fetch`; с прокси — `node-fetch` + agent
+ * (совместимо с abort-controller из grammY). `undici` fetch отвергает полифилл AbortSignal.
  */
-import { ProxyAgent, fetch as undiciFetch } from "undici";
+import type { Agent } from "node:http";
+import fetch from "node-fetch";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import { SocksProxyAgent } from "socks-proxy-agent";
 
-/**
- * grammY на Node тянет `abort-controller` + `node-fetch`; сигнал — не нативный `AbortSignal`.
- * `undici` fetch валидирует `init.signal` и падает с «Expected signal … instance of AbortSignal».
- * Пробрасываем отмену в нативный AbortController, который undici принимает.
- */
-export function wireGrammyAbortSignalForUndici(inner: typeof fetch): typeof fetch {
-  return (async (input, init) => {
-    const parent = init?.signal;
-    if (parent === undefined || parent === null) {
-      return await inner(input as string | URL, init as RequestInit);
-    }
-    const native = new AbortController();
-    const onParentAbort = () => {
-      native.abort();
-    };
-    if (parent.aborted) {
-      native.abort();
-    } else {
-      parent.addEventListener("abort", onParentAbort, { once: true });
-    }
-    try {
-      return await inner(input as string | URL, {
-        ...(init as object),
-        signal: native.signal,
-      } as RequestInit);
-    } finally {
-      parent.removeEventListener("abort", onParentAbort);
-    }
-  }) as typeof fetch;
+export type TelegramFetch = typeof globalThis.fetch;
+
+function requestUrl(input: Parameters<TelegramFetch>[0]): string {
+  if (typeof input === "string") {
+    return input;
+  }
+  if (input instanceof URL) {
+    return input.href;
+  }
+  return (input as Request).url;
 }
 
 /**
- * Дополнительный дедлайн на весь fetch: на части связок undici+Proxy игнорируется signal из grammY,
- * из‑за чего getMe может «висеть» дольше client.timeoutSeconds.
+ * Дополнительный дедлайн на весь fetch (запас к client.timeoutSeconds grammY).
  */
-export function wrapFetchWithDeadline(inner: typeof fetch, deadlineMs: number): typeof fetch {
+export function wrapFetchWithDeadline(inner: TelegramFetch, deadlineMs: number): TelegramFetch {
   const ms = Math.max(5_000, deadlineMs);
-  return ((input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+  return ((input, init) => {
     const cap = AbortSignal.timeout(ms);
     const parent = init?.signal;
     const merged =
       parent !== undefined && parent !== null ? AbortSignal.any([cap, parent]) : cap;
-    return inner(input as string | URL, {
-      ...(init as object),
+    return inner(input, {
+      ...init,
       signal: merged,
-    } as RequestInit);
-  }) as typeof fetch;
+    });
+  }) as TelegramFetch;
 }
 
-export function createTelegramApiFetch(proxyUrl: string | undefined, proxyConnectTimeoutMs: number): typeof fetch {
+function buildProxyAgent(uri: string, proxyConnectTimeoutMs: number): Agent {
+  const u = new URL(uri);
+  const isSocks =
+    u.protocol === "socks5:" || u.protocol === "socks4:" || u.protocol === "socks:";
+  if (isSocks) {
+    return new SocksProxyAgent(uri, { timeout: proxyConnectTimeoutMs }) as unknown as Agent;
+  }
+  return new HttpsProxyAgent(uri, { timeout: proxyConnectTimeoutMs }) as unknown as Agent;
+}
+
+export function createTelegramApiFetch(
+  proxyUrl: string | undefined,
+  proxyConnectTimeoutMs: number,
+): TelegramFetch {
   const uri = proxyUrl?.trim();
   if (!uri) {
-    return globalThis.fetch.bind(globalThis);
+    return globalThis.fetch.bind(globalThis) as TelegramFetch;
   }
-  const dispatcher = new ProxyAgent({
-    uri,
-    proxyTls: { timeout: proxyConnectTimeoutMs },
-  }) as import("undici").Dispatcher;
-
-  const viaProxy = ((input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-    undiciFetch(input as string | URL, {
+  const agent = buildProxyAgent(uri, proxyConnectTimeoutMs);
+  return (async (input, init) => {
+    const url = requestUrl(input);
+    const res = await fetch(url, {
       ...(init as object),
-      dispatcher,
-    } as Parameters<typeof undiciFetch>[1])) as typeof fetch;
-
-  return wireGrammyAbortSignalForUndici(viaProxy);
+      agent,
+    } as import("node-fetch").RequestInit);
+    return res as unknown as Awaited<ReturnType<TelegramFetch>>;
+  }) as TelegramFetch;
 }

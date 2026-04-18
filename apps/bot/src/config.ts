@@ -43,6 +43,12 @@ export type BotConfig = {
    * чтобы при «мёртвом» прокси процесс падал с ошибкой, а не молчал до TELEGRAM_API_TIMEOUT_SEC.
    */
   telegramBootstrapTimeoutMs: number;
+  /** Сколько раз повторять getMe при ECONNRESET и подобных ошибках. */
+  telegramBootstrapMaxAttempts: number;
+  /** Базовая задержка между повторами bootstrap (мс), растёт экспоненциально. */
+  telegramBootstrapRetryBaseMs: number;
+  /** Потолок задержки между повторами (мс). */
+  telegramBootstrapRetryMaxDelayMs: number;
 };
 
 function req(name: string): string {
@@ -144,6 +150,12 @@ export function loadConfig(): BotConfig {
     telegramBootstrapTimeoutMs: Math.min(
       120_000,
       Math.max(5_000, envInt("TELEGRAM_BOOTSTRAP_TIMEOUT_MS", 30_000)),
+    ),
+    telegramBootstrapMaxAttempts: Math.min(20, Math.max(1, envInt("TELEGRAM_BOOTSTRAP_MAX_ATTEMPTS", 8))),
+    telegramBootstrapRetryBaseMs: Math.max(100, envInt("TELEGRAM_BOOTSTRAP_RETRY_BASE_MS", 400)),
+    telegramBootstrapRetryMaxDelayMs: Math.max(
+      500,
+      envInt("TELEGRAM_BOOTSTRAP_RETRY_MAX_DELAY_MS", 8_000),
     ),
   };
 }

@@ -3,6 +3,7 @@ import { Api, Bot } from "grammy";
 import { loadConfig } from "./config.js";
 import { createTelegramApiFetch, wrapFetchWithDeadline } from "./telegram-fetch.js";
 import { wireTelegramBot } from "./telegram-handlers.js";
+import { withTransientNetworkRetries } from "./retry-network.js";
 import { startTelegramWebhookServer } from "./webhook-server.js";
 
 function logLine(obj: Record<string, unknown>) {
@@ -36,7 +37,13 @@ async function main() {
     fetch: bootstrapFetch,
     timeoutSeconds: bootstrapTimeoutSec,
   });
-  const botInfo = await bootstrapApi.getMe();
+  const botInfo = await withTransientNetworkRetries(
+    { msg: "assist_bot_bootstrap_getme_retry", logLine },
+    cfg.telegramBootstrapMaxAttempts,
+    cfg.telegramBootstrapRetryBaseMs,
+    cfg.telegramBootstrapRetryMaxDelayMs,
+    () => bootstrapApi.getMe(),
+  );
   logLine({
     msg: "assist_bot_init_ok",
     username: botInfo.username,
@@ -66,7 +73,14 @@ async function main() {
     await startTelegramWebhookServer(cfg, bot);
   } else {
     logLine({ msg: "assist_bot_start_enter" });
-    // getMe уже выполнен с коротким дедлайном; start() не держит init параллельно с deleteWebhook.
+    // grammY ретраит deleteWebhook только по 5xx/429; ECONNRESET с прокси — через наш слой.
+    await withTransientNetworkRetries(
+      { msg: "assist_bot_delete_webhook_retry", logLine },
+      cfg.telegramBootstrapMaxAttempts,
+      cfg.telegramBootstrapRetryBaseMs,
+      cfg.telegramBootstrapRetryMaxDelayMs,
+      () => bot.api.deleteWebhook({ drop_pending_updates: false }),
+    );
     const pollingTimeoutSec = cfg.agentProxyUrl ? 12 : 30;
     await bot.start({
       timeout: pollingTimeoutSec,

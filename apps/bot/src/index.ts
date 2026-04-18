@@ -46,9 +46,21 @@ async function main() {
   wireTelegramBot(bot, cfg, { telegramFetch: tgFetch });
 
   if (cfg.mode === "webhook") {
+    logLine({ msg: "assist_bot_init_begin" });
+    await bot.init();
+    logLine({ msg: "assist_bot_init_ok", username: bot.botInfo.username, bot_id: bot.botInfo.id });
     await startTelegramWebhookServer(cfg, bot);
   } else {
     logLine({ msg: "assist_bot_start_enter" });
+    // До start grammY параллелит getMe и deleteWebhook; под PM2 это иногда «виснет» без long poll.
+    // Явный init: второй этап start делает только deleteWebhook.
+    logLine({ msg: "assist_bot_init_begin" });
+    await bot.init();
+    logLine({
+      msg: "assist_bot_init_ok",
+      username: bot.botInfo.username,
+      bot_id: bot.botInfo.id,
+    });
     const pollingTimeoutSec = cfg.agentProxyUrl ? 12 : 30;
     await bot.start({
       timeout: pollingTimeoutSec,

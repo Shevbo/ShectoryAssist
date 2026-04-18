@@ -1,37 +1,10 @@
 /**
  * Telegram через тот же `ProxyAgent`, что и Gemini (`undici`), но вызов — `globalThis.fetch`
- * с `dispatcher` (совместимость сигналов с grammY лучше, чем у `undici.fetch`).
- * Полифилл `abort-controller` из grammY не подходит для `undici` fetch — мостим в нативный сигнал.
+ * с `dispatcher` (в Node сигнал grammY совместим; пакетный `undici.fetch` — нет).
  */
 import { ProxyAgent, fetch as undiciFetch } from "undici";
 
 export type TelegramFetch = typeof globalThis.fetch;
-
-export function wireGrammyAbortSignalForUndici(inner: typeof fetch): typeof fetch {
-  return (async (input, init) => {
-    const parent = init?.signal;
-    if (parent === undefined || parent === null) {
-      return await inner(input, init);
-    }
-    const native = new AbortController();
-    const onParentAbort = () => {
-      native.abort();
-    };
-    if (parent.aborted) {
-      native.abort();
-    } else {
-      parent.addEventListener("abort", onParentAbort, { once: true });
-    }
-    try {
-      return await inner(input, {
-        ...init,
-        signal: native.signal,
-      });
-    } finally {
-      parent.removeEventListener("abort", onParentAbort);
-    }
-  }) as typeof fetch;
-}
 
 /**
  * Дополнительный дедлайн на весь fetch (запас к client.timeoutSeconds grammY).
@@ -69,7 +42,8 @@ export function createTelegramApiFetch(
       dispatcher,
     } as unknown as RequestInit)) as typeof fetch;
 
-  return wireGrammyAbortSignalForUndici(viaDispatcher) as TelegramFetch;
+  // Node global fetch обычно принимает сигнал grammY; undici.fetch — нет.
+  return viaDispatcher as TelegramFetch;
 }
 
 /** Только для вызовов вне grammY (например оркестратор), где нужен чистый undici fetch. */

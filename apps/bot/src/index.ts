@@ -1,8 +1,9 @@
 import fs from "node:fs";
-import { Api, Bot } from "grammy";
+import { Bot } from "grammy";
 import { loadConfig } from "./config.js";
 import {
   createTelegramApiFetch,
+  telegramGetMeWithNativeSignal,
   wrapFetchWithDeadline,
   type TelegramFetch,
 } from "./telegram-fetch.js";
@@ -36,19 +37,21 @@ async function main() {
     telegram_bootstrap_timeout_ms: cfg.telegramBootstrapTimeoutMs,
   });
 
-  // Один таймаут — grammY client; при прокси innerFetch = node-fetch + agent (совместим с abort-controller).
-  const bootstrapTimeoutSec = Math.max(10, Math.ceil(cfg.telegramBootstrapTimeoutMs / 1_000));
+  // getMe вне grammY Api — нативный AbortSignal + undici (как Gemini); дальше grammY с wire(innerFetch).
+  const bootstrapDeadlineMs = cfg.telegramBootstrapTimeoutMs + 2_000;
   logLine({ msg: "assist_bot_bootstrap_begin" });
-  const bootstrapApi = new Api(cfg.telegramBotToken, {
-    fetch: innerFetch as never,
-    timeoutSeconds: bootstrapTimeoutSec,
-  });
   const botInfo = await withTransientNetworkRetries(
     { msg: "assist_bot_bootstrap_getme_retry", logLine },
     cfg.telegramBootstrapMaxAttempts,
     cfg.telegramBootstrapRetryBaseMs,
     cfg.telegramBootstrapRetryMaxDelayMs,
-    () => bootstrapApi.getMe(),
+    () =>
+      telegramGetMeWithNativeSignal(
+        cfg.telegramBotToken,
+        cfg.agentProxyUrl,
+        cfg.agentProxyConnectTimeoutMs,
+        bootstrapDeadlineMs,
+      ),
   );
   logLine({
     msg: "assist_bot_init_ok",
